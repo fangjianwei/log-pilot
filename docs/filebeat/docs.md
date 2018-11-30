@@ -120,12 +120,28 @@ The command above runs tomcat container, expect that log-pilot collect stdout of
 
 ### More
 
-There are many labels you can use to describe the log info. 
+There are many labels or env you can use to describe the log info. 
+The separator is dot while using labels.
+The separator is underscore while using env.
 
 - `aliyun.logs.$name=$path`
-    - Name is an identify, can be any string you want. The valid characters in name are `0-9a-zA-Z_-`
+    - Name is an identify, can be any string you want. The valid characters in name are `0-9a-zA-Z_-` in labels and `0-9a-zA-z` in env (Because of kubenetes's limit)
     - Path is the log file path, can contians wildcard. `stdout` is a special value which means stdout of the container.
 - `aliyun.logs.$name.tags="k1=v1,k2=v2"`: tags will be appended to log. 
 - `aliyun.logs.$name.target=target-for-log-storage`: target is used by the output plugins, instruct the plugins to store
 logs in appropriate place. For elasticsearch output, target means the log index in elasticsearch. For aliyun_sls output,
 target means the logstore in aliyun sls. The default value of target is the log name.
+- `aliyun.logs.$name.format=regexp`
+- `aliyun.logs.$name.format.pipeline=${pipelinename}`
+    - It will work while LOGGING_OUTPUT is elasticsearch. A format string value that specifies the ingest node pipeline to write events to. https://www.elastic.co/guide/en/beats/filebeat/current/configuring-ingest-node.html
+- `aliyun.logs.$name.multiline="true"`
+- `aliyun.logs.$name.multiline.pattern="^\d{2}\-[a-z]\-\d{4} \d{2}:\d{2}:\d{2}\.\d{3}"`
+- `aliyun.logs.$name.multiline.match=after`
+- `aliyun.logs.$name.multiline.negate=true`
+- `aliyun.logs.$name.multiline.max_lines=1000`
+- `aliyun.logs.$name.multiline.timeout=30`
+- `aliyun.logs.$name.multiline.flush_pattern=xx`
+    - see https://www.elastic.co/guide/en/beats/filebeat/current/multiline-examples.html
+    - to test https://www.elastic.co/guide/en/beats/filebeat/current/_test_your_regexp_pattern_for_multiline.html
+
+

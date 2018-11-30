@@ -171,6 +171,7 @@ type LogConfig struct {
 	ContainerDir string
 	Format       string
 	FormatConfig map[string]string
+	Multiline    map[string]string
 	File         string
 	Tags         map[string]string
 	Target       string
@@ -459,6 +460,7 @@ func (p *Pilot) processEvent(msg events.Message) error {
 
 func (p *Pilot) hostDirOf(path string, mounts map[string]types.MountPoint) string {
 	confPath := path
+	i := 0
 	for {
 		if point, ok := mounts[path]; ok {
 			if confPath == path {
@@ -474,6 +476,11 @@ func (p *Pilot) hostDirOf(path string, mounts map[string]types.MountPoint) strin
 		path = filepath.Dir(path)
 		if path == "/" || path == "." {
 			break
+		}
+		//Force break from current loop
+		if i++; i > 50 {
+			log.Errorf("Unknow error while execute hostDirOf for '%s', return empty hostDir", confPath)
+			return ""
 		}
 	}
 	return ""
@@ -501,6 +508,14 @@ func (p *Pilot) parseTags(tags string) (map[string]string, error) {
 	return tagMap, nil
 }
 
+func (p *Pilot) parseMultiline(multiline map[string]*LogInfoNode) (map[string]string, error) {
+	multilineMap := make(map[string]string)
+	for key, val := range multiline {
+		multilineMap[key] = val.value
+	}
+	return multilineMap, nil
+}
+
 func (p *Pilot) parseLogConfig(name string, info *LogInfoNode, jsonLogPath string, mounts map[string]types.MountPoint) (*LogConfig, error) {
 	path := strings.TrimSpace(info.value)
 	if path == "" {
@@ -514,15 +529,13 @@ func (p *Pilot) parseLogConfig(name string, info *LogInfoNode, jsonLogPath strin
 	}
 
 	target := info.get("target")
-	// add default index or topic
 	if _, ok := tagMap["index"]; !ok {
 		if target != "" {
 			tagMap["index"] = target
-		} else {
-			tagMap["index"] = name
 		}
 	}
 
+	// add default topic
 	if _, ok := tagMap["topic"]; !ok {
 		if target != "" {
 			tagMap["topic"] = target
@@ -541,11 +554,20 @@ func (p *Pilot) parseLogConfig(name string, info *LogInfoNode, jsonLogPath strin
 		return nil, fmt.Errorf("in log %s: format error: %v", name, err)
 	}
 
-	//特殊处理regex
-	if format.value == "regexp" {
-		format.value = fmt.Sprintf("/%s/", formatConfig["pattern"])
-		delete(formatConfig, "pattern")
+	multiline := info.children["multiline"]
+	if multiline == nil || multiline.value == "none" {
+		multiline = newLogInfoNode("nonex")
 	}
+	multilineMap, err := p.parseMultiline(multiline.children)
+	if err != nil {
+		return nil, fmt.Errorf("parse multiline for %s error: %v", name, err)
+	}
+
+	// //特殊处理regex
+	// if format.value == "regexp" {
+	// 	format.value = fmt.Sprintf("/%s/", formatConfig["pattern"])
+	// 	delete(formatConfig, "pattern")
+	// }
 
 	if path == "stdout" {
 		logFile := filepath.Base(jsonLogPath)
@@ -560,6 +582,7 @@ func (p *Pilot) parseLogConfig(name string, info *LogInfoNode, jsonLogPath strin
 			Format:       format.value,
 			Tags:         tagMap,
 			FormatConfig: map[string]string{"time_format": "%Y-%m-%dT%H:%M:%S.%NZ"},
+			Multiline:    multilineMap,
 			Target:       target,
 			EstimateTime: false,
 			Stdout:       true,
@@ -589,6 +612,7 @@ func (p *Pilot) parseLogConfig(name string, info *LogInfoNode, jsonLogPath strin
 		Tags:         tagMap,
 		HostDir:      filepath.Join(p.baseDir, hostDir),
 		FormatConfig: formatConfig,
+		Multiline:    multilineMap,
 		Target:       target,
 	}
 
@@ -661,7 +685,8 @@ func (p *Pilot) getLogConfigs(jsonLogPath string, mounts []types.MountPoint, lab
 
 			logLabel := strings.TrimPrefix(k, serviceLogs)
 			if err := root.insert(strings.Split(logLabel, "."), labels[k]); err != nil {
-				return nil, err
+				log.Warnf("label '%s' is not a entire config, %v", k, err)
+				//return nil, err
 			}
 		}
 	}
@@ -669,7 +694,9 @@ func (p *Pilot) getLogConfigs(jsonLogPath string, mounts []types.MountPoint, lab
 	for name, node := range root.children {
 		logConfig, err := p.parseLogConfig(name, node, jsonLogPath, mountsMap)
 		if err != nil {
-			return nil, err
+			log.Errorf("Fail to parseLogConfig for '%s', %v", name, err)
+			continue
+			//return nil, err
 		}
 		ret = append(ret, logConfig)
 	}
@@ -688,7 +715,7 @@ func (p *Pilot) render(containerId string, container map[string]string, configLi
 		log.Infof("logs: %s = %v", containerId, config)
 	}
 
-	output := os.Getenv(ENV_FLUENTD_OUTPUT)
+	output := os.Getenv(ENV_FILEBEAT_OUTPUT)
 	if p.piloter.Name() == PILOT_FILEBEAT {
 		output = os.Getenv(ENV_FILEBEAT_OUTPUT)
 	}

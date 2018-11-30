@@ -18,6 +18,17 @@
       {{range $key, $value := $.container}}
       {{ $key }}: {{ $value }}
       {{end}}
+  {{if .Multiline}}
+  {{if .Multiline.pattern}}multiline.pattern: '{{.Multiline.pattern}}'{{end}}
+  {{if .Multiline.negate}}multiline.negate: {{.Multiline.negate}}{{end}}
+  {{if .Multiline.match}}multiline.match: {{.Multiline.match}}{{end}}
+  {{if .Multiline.max_lines}}multiline.max_lines: {{.Multiline.max_lines}}{{end}}
+  {{if .Multiline.timeout}}multiline.timeout: {{.Multiline.timeout}}{{end}}
+  {{if .Multiline.flush_pattern}}multiline.flush_pattern: {{.Multiline.flush_pattern}}{{end}}
+  {{end}}
+  {{if eq $.output "elasticsearch"}}
+  {{if .FormatConfig.pipeline}}pipeline: {{.FormatConfig.pipeline}}{{end}}
+  {{end}}
   tail_files: false
   close_inactive: 2h
   close_eof: false

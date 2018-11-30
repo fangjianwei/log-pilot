@@ -83,6 +83,12 @@ cd $GOPATH/github.com/AliyunContainerService/log-pilot
 ./build-image.sh
 ```
 
+```
+docker build -t log-pilot:1.0.0-filebeat -f Dockerfile.filebeat .
+docker tag log-pilot:1.0.0-filebeat docker-repo.your.com/infra/log-pilot:1.0.0-filebeat
+docker push docker-repo.your.com/infra/log-pilot:1.0.0-filebeat
+```
+
 Contribute
 ==========
 

@@ -49,12 +49,12 @@ func init() {
 	Register("apache_error", simpleConverter([]string{}))
 	Register("nginx", simpleConverter([]string{}))
 	Register("regexp", func(info *LogInfoNode) (map[string]string, error) {
-		ret, err := simpleConverter([]string{"pattern", "time_format"})(info)
+		ret, err := simpleConverter([]string{"pattern", "time_format", "pipeline"})(info)
 		if err != nil {
 			return ret, err
 		}
-		if ret["pattern"] == "" {
-			return nil, fmt.Errorf("regex pattern can not be emtpy")
+		if ret["pattern"] == "" && ret["pipeline"] == "" {
+			return nil, fmt.Errorf("regex pattern or pipeline at least one")
 		}
 		return ret, nil
 	})
